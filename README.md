@@ -34,7 +34,3 @@ This repo is managed by a team of 4 AI agents:
 6. You review in Cursor and push to GitHub when ready
 
 All activity is tracked via the local dashboard.
-
-## Local Development
-
-Run a project's server:
