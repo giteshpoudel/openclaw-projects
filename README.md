@@ -33,13 +33,8 @@ This repo is managed by a team of 4 AI agents:
 5. **TESTER** verifies the work
 6. You review in Cursor and push to GitHub when ready
 
-All activity is tracked in the [Dashboard](http://localhost:3003).
+All activity is tracked via the local dashboard.
 
 ## Local Development
 
 Run a project's server:
-```bash
-node server.js
-```
-
-View the [Dashboard](http://localhost:3003) to track project progress.
