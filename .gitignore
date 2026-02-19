@@ -1,0 +1,25 @@
+# Secrets & Keys
+.env
+.env.local
+*.pem
+*.key
+api-keys.json
+credentials.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temp files
+*.tmp
+*.temp

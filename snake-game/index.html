@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🐍 Snake Game v2</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #0f0f23;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Courier New', monospace;
+      overflow: hidden;
+    }
+
+    h1 {
+      color: #00ff88;
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+      letter-spacing: 0.2em;
+    }
+
+    .score-panel {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      font-size: 18px;
+      color: #e2e8f0;
+      margin-bottom: 15px;
+    }
+
+    #gameContainer {
+      position: relative;
+      background: #0f0f23;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+    }
+
+    #gameCanvas {
+      display: block;
+      border: 3px solid #4ade80;
+      border-radius: 4px;
+    }
+    }
+
+    #overlay {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      right: 20px;
+      bottom: 20px;
+      background: rgba(15, 15, 35, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+    }
+
+    #overlay.hidden {
+      display: none;
+    }
+
+    #overlayTitle {
+      font-size: 3rem;
+      color: #00ff88;
+      margin-bottom: 20px;
+      text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+    }
+
+    #overlaySubtitle {
+      font-size: 1.2rem;
+      color: #fff;
+      margin-bottom: 30px;
+    }
+
+    #overlayScore {
+      font-size: 1.5rem;
+      color: #ff4757;
+      margin-bottom: 10px;
+    }
+
+    #overlayBest {
+      font-size: 1rem;
+      color: #ffd700;
+    }
+
+    .stats {
+      display: flex;
+      gap: 30px;
+      margin-top: 15px;
+      color: #888;
+      font-size: 0.9rem;
+    }
+
+    .stats span {
+      color: #00ff88;
+    }
+  </style>
+</head>
+<body>
+  <h1>🐍 SNAKE</h1>
+  
+  <div class="score-panel">
+    <div>Score: <span id="scoreDisplay">0</span></div>
+    <div>Best: <span id="bestScoreDisplay">0</span></div>
+  </div>
+  
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="600" height="600"></canvas>
+    
+    <div id="overlay">
+      <div id="overlayTitle">🐍 SNAKE</div>
+      <div id="overlayScore"></div>
+      <div id="overlayBest"></div>
+      <div id="overlaySubtitle">Press ANY KEY to Start</div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div>Speed: <span id="speedDisplay">1.0x</span></div>
+    <div>Hearts: <span id="heartsDisplay">0</span></div>
+  </div>
+
+  <script>
+    // ============ CONFIGURATION ============
+    const GRID_SIZE = 50;
+    const TILE_SIZE = 12;
+    const CANVAS_SIZE = GRID_SIZE * TILE_SIZE;
+    const BASE_SPEED = 120;
+    
+    // ============ GAME STATE ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let snake = [];
+    let coin = { x: 0, y: 0 };
+    let direction = { x: 1, y: 0 };
+    let nextDirection = { x: 1, y: 0 };
+    let state = 'start';
+    let score = 0;
+    let bestScore = parseInt(localStorage.getItem('snakeBestScore')) || 0;
+    // Initialize HTML score displays
+    document.getElementById('bestScoreDisplay').textContent = bestScore;
+    let heartsCollected = 0;
+    let gameLoop = null;
+    let isKeyHeld = false;
+    let heldDirection = null;
+    
+    // ============ INITIALIZATION ============
+    function init() {
+      // Initialize snake at center
+      const startX = Math.floor(GRID_SIZE / 2);
+      const startY = Math.floor(GRID_SIZE / 2);
+      snake = [
+        { x: startX, y: startY },
+        { x: startX - 1, y: startY },
+        { x: startX - 2, y: startY },
+        { x: startX - 3, y: startY },
+        { x: startX - 4, y: startY },
+        { x: startX - 5, y: startY },
+        { x: startX - 6, y: startY },
+        { x: startX - 7, y: startY }
+      ];
+      
+      direction = { x: 1, y: 0 };
+      nextDirection = { x: 1, y: 0 };
+      score = 0;
+      heartsCollected = 0;
+      isKeyHeld = false;
+      heldDirection = null;
+      
+      spawnCoin();
+      updateDisplay();
+    }
+    
+    // ============ COIN SPAWNING ============
+    function spawnCoin() {
+      let valid = false;
+      while (!valid) {
+        coin.x = Math.floor(Math.random() * GRID_SIZE);
+        coin.y = Math.floor(Math.random() * GRID_SIZE);
+        valid = !snake.some(seg => seg.x === coin.x && seg.y === coin.y);
+      }
+    }
+    
+    // ============ SPEED CALCULATION ============
+    function getCurrentSpeed() {
+      // Growth bonus: +10% for every 10 hearts (compounding)
+      const growthBonus = Math.floor(heartsCollected / 5) * 0.10;
+      // Hold bonus: +50% while holding key
+      const holdBonus = isKeyHeld ? 0.5 : 0;
+      
+      const totalMultiplier = 1 + growthBonus + holdBonus;
+      return BASE_SPEED / totalMultiplier;
+    }
+    
+    // ============ GAME LOOP ============
+    function update() {
+      // Apply direction change
+      direction = { ...nextDirection };
+      
+      // Calculate new head position
+      let newHead = {
+        x: snake[0].x + direction.x,
+        y: snake[0].y + direction.y
+      };
+      
+      // Wrap around edges
+      if (newHead.x < 0) newHead.x = GRID_SIZE - 1;
+      if (newHead.x >= GRID_SIZE) newHead.x = 0;
+      if (newHead.y < 0) newHead.y = GRID_SIZE - 1;
+      if (newHead.y >= GRID_SIZE) newHead.y = 0;
+      
+      // Check self-collision
+      if (snake.some(seg => seg.x === newHead.x && seg.y === newHead.y)) {
+        gameOver();
+        return;
+      }
+      
+      // Add new head
+      snake.unshift(newHead);
+      
+      // Check coin collision
+      if (newHead.x === coin.x && newHead.y === coin.y) {
+        score += 10;
+        heartsCollected++;
+        spawnCoin();
+        // Update HTML score display
+        document.getElementById('scoreDisplay').textContent = score;
+        // Don't remove tail - snake grows
+      } else {
+        // Remove tail
+        snake.pop();
+      }
+      
+      render();
+      updateDisplay();
+    }
+    
+    // ============ RENDERING ============
+    function render() {
+      // Clear with white background (play area)
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      
+      // Draw grid lines (fine grey)
+      ctx.strokeStyle = '#e0e0e0';
+      ctx.lineWidth = 1;
+      
+      // Vertical lines
+      for (let x = 0; x <= GRID_SIZE; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x * TILE_SIZE, 0);
+        ctx.lineTo(x * TILE_SIZE, CANVAS_SIZE);
+        ctx.stroke();
+      }
+      
+      // Horizontal lines
+      for (let y = 0; y <= GRID_SIZE; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y * TILE_SIZE);
+        ctx.lineTo(CANVAS_SIZE, y * TILE_SIZE);
+        ctx.stroke();
+      }
+      
+      // Draw snake body
+      snake.forEach((seg, i) => {
+        const x = seg.x * TILE_SIZE;
+        const y = seg.y * TILE_SIZE;
+        
+        if (i === 0) {
+          // Head - brighter green
+          ctx.fillStyle = '#00ff88';
+        } else {
+          // Body - slightly darker
+          ctx.fillStyle = '#00cc6a';
+        }
+        
+        ctx.fillRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+      });
+      
+      // Draw coin (heart)
+      const coinX = coin.x * TILE_SIZE + TILE_SIZE / 2;
+      const coinY = coin.y * TILE_SIZE + TILE_SIZE / 2;
+      ctx.font = `${TILE_SIZE - 2}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('❤️', coinX, coinY);
+    }
+    
+    // ============ DISPLAY UPDATE ============
+    function updateDisplay() {
+      const speed = (1 + Math.floor(heartsCollected / 5) * 0.10 + (isKeyHeld ? 0.5 : 0)).toFixed(1);
+      document.getElementById('speedDisplay').textContent = speed + 'x';
+      document.getElementById('heartsDisplay').textContent = heartsCollected;
+    }
+    
+    // ============ GAME STATE MANAGEMENT ============
+    function startGame() {
+      state = 'playing';
+      init();
+      document.getElementById('overlay').classList.add('hidden');
+      
+      if (gameLoop) clearInterval(gameLoop);
+      gameLoop = setInterval(update, getCurrentSpeed());
+    }
+    
+    function gameOver() {
+      state = 'gameover';
+      clearInterval(gameLoop);
+      
+      if (score > bestScore) {
+        bestScore = score;
+        localStorage.setItem('snakeBestScore', bestScore);
+        document.getElementById('bestScoreDisplay').textContent = bestScore;
+      }
+      
+      showOverlay('GAME OVER', `Score: ${score}`, `Best: ${bestScore}`, 'Press ANY KEY to Restart');
+    }
+    
+    function showOverlay(title, scoreText, bestText, subtitle) {
+      document.getElementById('overlayTitle').textContent = title;
+      document.getElementById('overlayScore').textContent = scoreText;
+      document.getElementById('overlayBest').textContent = bestText;
+      document.getElementById('overlaySubtitle').textContent = subtitle;
+      document.getElementById('overlay').classList.remove('hidden');
+    }
+    
+    // ============ INPUT HANDLING ============
+    document.addEventListener('keydown', (e) => {
+      if (state === 'start' || state === 'gameover') {
+        startGame();
+        return;
+      }
+      
+      if (state !== 'playing') return;
+      
+      const key = e.key;
+      let newDir = null;
+      
+      if (key === 'ArrowUp' && direction.y !== 1) newDir = { x: 0, y: -1 };
+      else if (key === 'ArrowDown' && direction.y !== -1) newDir = { x: 0, y: 1 };
+      else if (key === 'ArrowLeft' && direction.x !== 1) newDir = { x: -1, y: 0 };
+      else if (key === 'ArrowRight' && direction.x !== -1) newDir = { x: 1, y: 0 };
+      
+      if (newDir) {
+        // If pressing the same direction that's currently moving, enable speed boost
+        if (newDir.x === direction.x && newDir.y === direction.y) {
+          isKeyHeld = true;
+        } else {
+          isKeyHeld = false;
+        }
+        
+        nextDirection = newDir;
+        
+        // Restart loop with new speed
+        clearInterval(gameLoop);
+        gameLoop = setInterval(update, getCurrentSpeed());
+      }
+    });
+    
+    document.addEventListener('keyup', (e) => {
+      // Only disable speed boost if releasing the key matching current direction
+      const currentKey = direction.x === 1 ? 'ArrowRight' : 
+                        direction.x === -1 ? 'ArrowLeft' : 
+                        direction.y === 1 ? 'ArrowDown' : 'ArrowUp';
+      
+      if (e.key === currentKey) {
+        isKeyHeld = false;
+        
+        // Restart loop with normal speed
+        clearInterval(gameLoop);
+        gameLoop = setInterval(update, getCurrentSpeed());
+      }
+    });
+    
+    // ============ INITIAL RENDER ============
+    init();
+    render();
+    showOverlay('🐍 SNAKE', '', `Best: ${bestScore}`, 'Press ANY KEY to Start');
+  </script>
+</body>
+</html>
