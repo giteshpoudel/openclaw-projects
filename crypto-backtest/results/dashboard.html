@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Backtest Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            padding: 40px 20px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+        .header p { opacity: 0.9; }
+        
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .stat-card.winner { border-color: #10b981; background: rgba(16,185,129,0.2); }
+        .stat-value { font-size: 2rem; font-weight: bold; }
+        .stat-value.positive { color: #10b981; }
+        .stat-value.negative { color: #ef4444; }
+        .stat-label { opacity: 0.7; margin-top: 5px; }
+        
+        .section { margin-bottom: 30px; }
+        .section h2 { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #667eea; }
+        
+        .strategies {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .strategy-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .strategy-card:hover { transform: translateY(-5px); box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+        .strategy-card.winner { border-color: #10b981; }
+        
+        .strategy-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .strategy-name { font-size: 1.3rem; font-weight: bold; }
+        .badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .badge.win { background: #10b981; }
+        .badge.loss { background: #ef4444; }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .metric { background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; }
+        .metric-label { font-size: 0.8rem; opacity: 0.7; }
+        .metric-value { font-size: 1.1rem; font-weight: bold; }
+        
+        .trades-list {
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .trade {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.9rem;
+        }
+        .trade.profit { color: #10b981; }
+        .trade.loss { color: #ef4444; }
+        
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab {
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .tab.active { background: #667eea; }
+        
+        .hidden { display: none; }
+        
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.8rem; }
+            .strategies { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Crypto Backtest Dashboard</h1>
+        <p>Strategy comparison for intraday crypto trading</p>
+        <p style="margin-top:10px;font-size:0.9rem">Data: rain, shiba-inu, pepe, htx-dao | Period: 30 days</p>
+    </div>
+    
+    <div class="summary">
+        <div class="stat-card">
+            <div class="stat-value">4</div>
+            <div class="stat-label">Strategies Tested</div>
+        </div>
+        <div class="stat-card winner">
+            <div class="stat-value positive">+24.2%</div>
+            <div class="stat-label">Best Return</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">58.5%</div>
+            <div class="stat-label">Best Win Rate</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">466</div>
+            <div class="stat-label">Total Trades</div>
+        </div>
+    </div>
+    
+    <div class="tabs">
+        <button class="tab active" onclick="showTab('all')">All Strategies</button>
+        <button class="tab" onclick="showTab('winner')">🏆 Winner</button>
+    </div>
+    
+    <div id="winner" class="hidden">
+        <div class="strategy-card winner">
+            <div class="strategy-header">
+                <div class="strategy-name">🎯 TightBand Strategy</div>
+                <span class="badge win">+24.2%</span>
+            </div>
+            <div class="metrics">
+                <div class="metric">
+                    <div class="metric-label">Win Rate</div>
+                    <div class="metric-value">58.5%</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Total Trades</div>
+                    <div class="metric-value">106</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Profit</div>
+                    <div class="metric-value positive">+$242.34</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Avg Profit</div>
+                    <div class="metric-value">$6.54</div>
+                </div>
+            </div>
+            <div style="margin-top:15px;padding:10px;background:rgba(0,0,0,0.2);border-radius:8px">
+                <div style="font-size:0.9rem;opacity:0.7">Parameters</div>
+                <code style="font-size:0.85rem">ma_period=10, band=0.01, stop_loss=0.02, position_size=0.15</code>
+            </div>
+        </div>
+    </div>
+    
+    <div id="all">
+        <div class="strategies">
+            <div class="strategy-card winner">
+                <div class="strategy-header">
+                    <div class="strategy-name">🎯 TightBand</div>
+                    <span class="badge win">+24.2%</span>
+                </div>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-label">Win Rate</div>
+                        <div class="metric-value">58.5%</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Trades</div>
+                        <div class="metric-value">106</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">P&L</div>
+                        <div class="metric-value positive">+$242</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Return</div>
+                        <div class="metric-value positive">+24.2%</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="strategy-card">
+                <div class="strategy-header">
+                    <div class="strategy-name">RSIv3</div>
+                    <span class="badge loss">-1.7%</span>
+                </div>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-label">Win Rate</div>
+                        <div class="metric-value">33.3%</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Trades</div>
+                        <div class="metric-value">78</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">P&L</div>
+                        <div class="metric-value negative">-$17</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Return</div>
+                        <div class="metric-value negative">-1.7%</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="strategy-card">
+                <div class="strategy-header">
+                    <div class="strategy-name">Scalper</div>
+                    <span class="badge loss">-2.6%</span>
+                </div>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-label">Win Rate</div>
+                        <div class="metric-value">29.6%</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Trades</div>
+                        <div class="metric-value">81</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">P&L</div>
+                        <div class="metric-value negative">-$26</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Return</div>
+                        <div class="metric-value negative">-2.6%</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="strategy-card">
+                <div class="strategy-header">
+                    <div class="strategy-name">VolMomentumV3</div>
+                    <span class="badge loss">-6.7%</span>
+                </div>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-label">Win Rate</div>
+                        <div class="metric-value">34.3%</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Trades</div>
+                        <div class="metric-value">201</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">P&L</div>
+                        <div class="metric-value negative">-$67</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Return</div>
+                        <div class="metric-value negative">-6.7%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="section" style="margin-top:40px">
+        <h2>📈 Version History</h2>
+        <table style="width:100%;border-collapse:collapse;margin-top:15px">
+            <tr style="background:rgba(255,255,255,0.1)">
+                <th style="padding:12px;text-align:left">Version</th>
+                <th style="padding:12px;text-align:left">Changes</th>
+                <th style="padding:12px;text-align:right">Best Return</th>
+            </tr>
+            <tr>
+                <td style="padding:12px;border-bottom:1px solid rgba(255,255,255,0.1)">v3 (Current)</td>
+                <td style="padding:12px;border-bottom:1px solid rgba(255,255,255,0.1)">Position sizing, TightBand</td>
+                <td style="padding:12px;text-align:right;color:#10b981">+24.2%</td>
+            </tr>
+            <tr>
+                <td style="padding:12px;border-bottom:1px solid rgba(255,255,255,0.1)">v2</td>
+                <td style="padding:12px;border-bottom:1px solid rgba(255,255,255,0.1)">Stop-loss, filters</td>
+                <td style="padding:12px;text-align:right;color:#ef4444">-26%</td>
+            </tr>
+            <tr>
+                <td style="padding:12px;border-bottom:1px solid rgba(255,255,255,0.1)">v1</td>
+                <td style="padding:12px;border-bottom:1px solid rgba(255,255,255,0.1)">Initial</td>
+                <td style="padding:12px;text-align:right;color:#ef4444">-100%</td>
+            </tr>
+        </table>
+    </div>
+    
+    <div style="text-align:center;padding:40px;opacity:0.6">
+        <p>💡 Open <a href="https://github.com/giteshpoudel/openclaw-projects" style="color:#667eea">GitHub Repo</a> | <a href="CHANGELOG.md" style="color:#667eea">Changelog</a></p>
+    </div>
+    
+    <script>
+        function showTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            if (tab === 'winner') {
+                document.getElementById('winner').classList.remove('hidden');
+                document.getElementById('all').classList.add('hidden');
+            } else {
+                document.getElementById('winner').classList.add('hidden');
+                document.getElementById('all').classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>

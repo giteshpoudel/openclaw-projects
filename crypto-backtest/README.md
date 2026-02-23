@@ -42,7 +42,12 @@ python run.py compare   # Compare all strategies
 
 ## Results
 
-Results are saved to `results/` folder with metrics:
+Results are saved to `results/` folder.
+
+### View Dashboard
+Open `results/dashboard.html` in a browser, or view on GitHub Pages.
+
+### Metrics Tracked
 
 - Total trades
 - Win rate %
