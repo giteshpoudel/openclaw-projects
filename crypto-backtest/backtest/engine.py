@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Backtest Engine - Execute trading strategies on historical data
+Backtest Engine v3 - With position sizing
 """
 
 import pandas as pd
@@ -25,79 +25,83 @@ class Trade:
         self.exit_price = exit_price
         self.exit_time = exit_time
         self.pnl = (exit_price - self.entry_price) * self.quantity
-        self.pnl_percent = ((exit_price - self.entry_price) / self.entry_price) * 100
+        self.pnl_percent = ((exit_price - self.entry_price) / self.entry_price) * 100 if self.entry_price > 0 else 0
 
 class BacktestEngine:
     def __init__(self, initial_balance=1000):
         self.initial_balance = initial_balance
         self.balance = initial_balance
         self.trades: List[Trade] = []
-        self.open_positions: Dict[str, Trade] = {}  # coin -> Trade
-        self.current_strategy = None
+        self.open_positions: Dict[str, Trade] = {}
         
     def reset(self):
-        """Reset for new backtest"""
         self.balance = self.initial_balance
         self.trades = []
         self.open_positions = {}
         
-    def buy(self, coin, price, time, quantity=None):
-        """Open a long position"""
-        if quantity is None:
-            quantity = self.balance / price  # Use all balance
+    def run_on_coin(self, df, entry_signal, exit_signal, coin, position_size=1.0):
+        """Run backtest for a single coin"""
+        coin_data = df[df["coin"] == coin].reset_index(drop=True)
+        if len(coin_data) < 10:
+            return []
+        
+        coin_balance = self.initial_balance * position_size
+        coin_trades = []
+        position = None
+        
+        for idx in range(len(coin_data)):
+            row = coin_data.iloc[idx]
+            current_price = row["close"]
             
-        cost = quantity * price
-        if cost > self.balance:
-            return False  # Not enough balance
+            if position is not None:
+                if exit_signal(row, position):
+                    pnl = (current_price - position["entry_price"]) * position["quantity"]
+                    coin_balance += pnl
+                    coin_trades.append({
+                        "coin": coin,
+                        "entry": position["entry_price"],
+                        "exit": current_price,
+                        "pnl": pnl,
+                        "pnl_pct": ((current_price - position["entry_price"]) / position["entry_price"]) * 100 if position["entry_price"] > 0 else 0
+                    })
+                    position = None
             
-        self.balance -= cost
-        trade = Trade(price, time, quantity, coin)
-        self.open_positions[coin] = trade
-        return True
+            if position is None:
+                if entry_signal(row):
+                    if current_price > 0:
+                        position = {
+                            "entry_price": current_price,
+                            "entry_time": row["timestamp"],
+                            "quantity": coin_balance / current_price
+                        }
+        
+        if position is not None:
+            last_row = coin_data.iloc[-1]
+            pnl = (last_row["close"] - position["entry_price"]) * position["quantity"]
+            coin_trades.append({
+                "coin": coin,
+                "entry": position["entry_price"],
+                "exit": last_row["close"],
+                "pnl": pnl,
+                "pnl_pct": ((last_row["close"] - position["entry_price"]) / position["entry_price"]) * 100 if position["entry_price"] > 0 else 0
+            })
+        
+        return coin_trades
     
-    def sell(self, coin, price, time, quantity=None):
-        """Close a position (short or long)"""
-        if coin not in self.open_positions:
-            return False
-            
-        trade = self.open_positions[coin]
-        if quantity and quantity < trade.quantity:
-            # Partial close - not implemented for simplicity
-            return False
-            
-        trade.close(price, time)
-        self.balance += trade.quantity * price
-        self.trades.append(trade)
-        del self.open_positions[coin]
-        return True
-    
-    def run(self, data, entry_signal: Callable, exit_signal: Callable):
-        """Run backtest with given entry/exit signals"""
+    def run(self, data, entry_signal: Callable, exit_signal: Callable, position_size=1.0):
         self.reset()
         
-        for i, row in data.iterrows():
-            coin = row.get("coin", "UNKNOWN")
-            
-            # Check exit signals first
-            if coin in self.open_positions:
-                if exit_signal(row, self.open_positions[coin]):
-                    self.sell(coin, row["close"], row["timestamp"])
-            
-            # Check entry signals
-            if coin not in self.open_positions:
-                if entry_signal(row):
-                    self.buy(coin, row["close"], row["timestamp"])
+        all_trades = []
+        coins = data["coin"].unique()
         
-        # Close remaining positions at last price
-        last_price = data.iloc[-1]["close"]
-        last_time = data.iloc[-1]["timestamp"]
-        for coin in list(self.open_positions.keys()):
-            self.sell(coin, last_price, last_time)
-            
+        for coin in coins:
+            coin_trades = self.run_on_coin(data, entry_signal, exit_signal, coin, position_size)
+            all_trades.extend(coin_trades)
+        
+        self.trades = all_trades
         return self.get_metrics()
     
     def get_metrics(self) -> Dict:
-        """Calculate performance metrics"""
         if not self.trades:
             return {
                 "total_trades": 0,
@@ -111,7 +115,7 @@ class BacktestEngine:
                 "max_loss": 0,
             }
         
-        pnls = [t.pnl for t in self.trades]
+        pnls = [t["pnl"] for t in self.trades]
         profits = [t for t in pnls if t > 0]
         losses = [t for t in pnls if t < 0]
         
@@ -125,25 +129,14 @@ class BacktestEngine:
             "avg_loss": np.mean(losses) if losses else 0,
             "max_profit": max(profits) if profits else 0,
             "max_loss": min(losses) if losses else 0,
-            "final_balance": self.balance,
-            "return_pct": ((self.balance - self.initial_balance) / self.initial_balance) * 100,
-            "trades": [
-                {
-                    "coin": t.coin,
-                    "entry": t.entry_price,
-                    "exit": t.exit_price,
-                    "pnl": t.pnl,
-                    "pnl_pct": t.pnl_percent
-                }
-                for t in self.trades
-            ]
+            "final_balance": self.initial_balance + sum(pnls),
+            "return_pct": (sum(pnls) / self.initial_balance) * 100,
+            "trades": self.trades
         }
     
     def save_results(self, strategy_name, data_params):
-        """Save results to JSON"""
         import json
         import os
-        
         os.makedirs(RESULTS_DIR, exist_ok=True)
         
         metrics = self.get_metrics()
@@ -159,33 +152,3 @@ class BacktestEngine:
             json.dump(result, f, indent=2)
         
         return filename, metrics
-
-
-# Example usage
-if __name__ == "__main__":
-    # Simple test with dummy data
-    engine = BacktestEngine(initial_balance=1000)
-    
-    # Create dummy OHLC data
-    data = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=100, freq="1H"),
-        "open": np.random.uniform(0.001, 0.01, 100),
-        "high": np.random.uniform(0.001, 0.01, 100),
-        "low": np.random.uniform(0.001, 0.01, 100),
-        "close": np.random.uniform(0.001, 0.01, 100),
-        "coin": ["DOGE"] * 100
-    })
-    
-    # Simple entry: price up for 3 consecutive hours
-    def entry(row, idx, df):
-        if idx < 3: return False
-        return df.iloc[idx-3:idx]["close"].is_monotonic_increasing
-    
-    # Simple exit: price down for 2 consecutive hours
-    def exit(row, idx, df, trade):
-        if idx < 2: return False
-        return df.iloc[idx-2:idx]["close"].is_monotonic_decreasing
-    
-    # Run
-    metrics = engine.run(data, lambda r: entry(r, 0, data), lambda r, t: exit(r, 0, data, t))
-    print("Test Results:", metrics)

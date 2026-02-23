@@ -1,0 +1,78 @@
+{
+  "strategy": "ImprovedRSI",
+  "params": {
+    "data_file": "ohlc_20260223.csv"
+  },
+  "timestamp": "2026-02-23T11:24:33.804048",
+  "metrics": {
+    "total_trades": 8,
+    "profitable": 1,
+    "losing": 1,
+    "win_rate": 12.5,
+    "total_pnl": -999.7997303770617,
+    "avg_profit": 129.58220199060014,
+    "avg_loss": -1129.3819323676619,
+    "max_profit": 129.58220199060014,
+    "max_loss": -1129.3819323676619,
+    "final_balance": 0.20026962293821005,
+    "return_pct": -99.97997303770619,
+    "trades": [
+      {
+        "coin": "rain",
+        "entry": 0.00947252,
+        "exit": 0.01069999,
+        "pnl": 129.58220199060014,
+        "pnl_pct": 12.958220199060014
+      },
+      {
+        "coin": "shiba-inu",
+        "entry": 7.26e-06,
+        "exit": 6.16e-06,
+        "pnl": -0.0,
+        "pnl_pct": -15.151515151515147
+      },
+      {
+        "coin": "pepe",
+        "entry": 4.66e-06,
+        "exit": 3.82e-06,
+        "pnl": -0.0,
+        "pnl_pct": -18.025751072961384
+      },
+      {
+        "coin": "htx-dao",
+        "entry": 1.76e-06,
+        "exit": 1.66e-06,
+        "pnl": -0.0,
+        "pnl_pct": -5.681818181818187
+      },
+      {
+        "coin": "rain",
+        "entry": 0.00936291,
+        "exit": 1.66e-06,
+        "pnl": -1129.3819323676619,
+        "pnl_pct": -99.98227046933059
+      },
+      {
+        "coin": "shiba-inu",
+        "entry": 6.25e-06,
+        "exit": 1.66e-06,
+        "pnl": -0.0,
+        "pnl_pct": -73.44
+      },
+      {
+        "coin": "pepe",
+        "entry": 4.23e-06,
+        "exit": 1.66e-06,
+        "pnl": -0.0,
+        "pnl_pct": -60.7565011820331
+      },
+      {
+        "coin": "htx-dao",
+        "entry": 1.7e-06,
+        "exit": 1.66e-06,
+        "pnl": -0.0,
+        "pnl_pct": -2.3529411764705905
+      }
+    ]
+  }
+}
