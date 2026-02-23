@@ -14,6 +14,16 @@ Collection of projects managed by OpenClaw AI agent squad.
 - **Tech:** HTML5 Canvas, Vanilla JavaScript
 - **Status:** Active development
 
+### Crypto Backtest
+- **Description:** Python system for backtesting intraday crypto trading strategies
+- **Features:**
+  - Fetch data from CoinGecko API
+  - Multiple strategy frameworks (Momentum, RSI, MeanReversion, Breakout)
+  - Detailed P&L metrics (win rate, profitable/losing trades)
+  - Results saved to JSON for analysis
+- **Tech:** Python, pandas, numpy
+- **Status:** Initial setup complete
+
 ## Agent Squad
 
 This repo is managed by a team of 4 AI agents:
